@@ -65,7 +65,7 @@ cppcoro::task<std::string> bar(ssize_t st, Message m) {
     }
 }
 
-task<std::string> build_hello_world() {
+cppcoro::task<std::string> build_hello_world() {
     auto [world, hello] = co_await cppcoro::when_all_ready(bar(50, WORLD), bar(50, HELLO));
     co_return (hello.result() + world.result());
 }
