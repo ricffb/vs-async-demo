@@ -102,7 +102,7 @@ awaitable<void> echo(tcp::socket socket)
             if (read_total < 3) {
                 continue;
             } else {
-                char num[4] = "\0";
+                char num[4] = {'\0'};
                 char* end;
                 std::memcpy(num, data_buffer, 3);
                 auto _len = std::strtoul(num, &end, 10);
@@ -111,12 +111,12 @@ awaitable<void> echo(tcp::socket socket)
                 }
 
                 // Json Read completely
-                std::memmove(data_buffer, data_buffer+3, read_total-1);
+                std::memmove(data_buffer, data_buffer+3, sizeof(data_buffer)-3);
 
                 json::Document document;
                 bool was_parsed = false;
                 try {
-                    document.Parse(data);
+                    document.Parse(data_buffer);
                     was_parsed = true;
                 }
                 catch (json::ParseErrorCode e) {
@@ -126,7 +126,10 @@ awaitable<void> echo(tcp::socket socket)
 
                 if (not was_parsed || not document.IsObject() || not document.HasMember("function") || not document.HasMember("arg")){
                     // NO Parse echo back
-                    co_await async_write(socket, boost::asio::buffer(data_buffer, n), use_awaitable);
+
+                    char send_buffer[4096] = {'\0'};
+                    std::strcpy(send_buffer, data_buffer);
+                    co_await async_write(socket, boost::asio::buffer(data_buffer, std::strlen(data_buffer)), use_awaitable);
                     read_total = 0;
                     data_buf_begin = data_buffer;
                     std::memset(data_buffer, 0, 4096);
@@ -136,7 +139,7 @@ awaitable<void> echo(tcp::socket socket)
                 int arg = document["arg"].GetInt();
                 std::string f_name = document["function"].GetString();
                 auto ret = cppcoro::sync_wait(handle_lookup[f_name](arg));
-                co_await async_write(socket, boost::asio::buffer(ret, n), use_awaitable);
+                co_await async_write(socket, boost::asio::buffer(ret, ret.size()), use_awaitable);
             }
         }
     }
